@@ -145,36 +145,6 @@ All tools return standardized responses with the following structure:
 - **pydsr**: Python DSR library for graph operations
 - **Python**: 3.7+ required
 
-## Architecture
-
-The server follows a modular architecture:
-
-- **Connection Layer**: Manages DSR graph connections and health checks
-- **Tool Layer**: Exposes MCP tools for various DSR operations
-- **Response Layer**: Standardizes success/error responses
-- **Logging Layer**: Provides comprehensive operation logging
-
-## Error Handling
-
-The server implements robust error handling for:
-- DSR connection failures
-- Invalid node identifiers
-- Graph operation errors
-- Network connectivity issues
-
-All errors are logged and returned with descriptive messages to help with debugging.
-
-## Development
-
-### Project Structure
-```
-dsr_mcp_server/
-├── server.py          # Main MCP server implementation
-├── requirements.txt   # Python dependencies
-├── mcp.json          # MCP client configuration
-└── README.md         # This file
-```
-
 ### Contributing
 
 1. Fork the repository
@@ -182,10 +152,6 @@ dsr_mcp_server/
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
-
-## License
-
-[Add your license information here]
 
 ## Support
 
