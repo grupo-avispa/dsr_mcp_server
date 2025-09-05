@@ -534,6 +534,97 @@ def insert_edge_attribute(origin_id: str, destination_id: str,
         }
 
 
+@mcp.tool(
+    name='delete_node',
+    description='Delete a node from the DSR graph',
+    tags={'dsr', 'node', 'delete', 'graph'}
+)
+def delete_node(node_id: str) -> dict:
+    """
+    Delete a node from the DSR graph.
+
+    Args:
+        node_id (str): ID of the node to delete.
+
+    Returns:
+        dict: Dictionary with the result of the deletion or error message.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'node': None
+        }
+    try:
+        # Reference: DSRGraph.delete_node(node_id)
+        success = dsr_graph.delete_node(int(node_id))
+        if success:
+            return {
+                'success': True,
+                'message': 'Node deleted successfully',
+                'node_id': node_id
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to delete node',
+                'node': None
+            }
+    except (AttributeError, RuntimeError, ValueError) as e:
+        return {
+            'success': False,
+            'error': f'Error deleting node: {str(e)}',
+            'node': None
+        }
+
+
+@mcp.tool(
+    name='delete_edge',
+    description='Delete an edge from the DSR graph',
+    tags={'dsr', 'edge', 'delete', 'graph'}
+)
+def delete_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
+    """
+    Delete an edge from the DSR graph.
+
+    Args:
+        origin_id (str): ID of the origin node.
+        destination_id (str): ID of the destination node.
+        edge_type (str): Type of the edge to delete.
+
+    Returns:
+        dict: Dictionary with the result of the deletion or error message.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'edge': None
+        }
+    try:
+        # Reference: DSRGraph.delete_edge(origin_id, destination_id, edge_type)
+        success = dsr_graph.delete_edge(
+            int(origin_id), int(destination_id), edge_type)
+        if success:
+            return {
+                'success': True,
+                'message': 'Edge deleted successfully',
+                'origin_id': origin_id,
+                'destination_id': destination_id,
+                'edge_type': edge_type
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to delete edge',
+                'edge': None
+            }
+    except (AttributeError, RuntimeError, ValueError) as e:
+        return {
+            'success': False,
+            'error': f'Error deleting edge: {str(e)}',
+            'edge': None
+        }
+
+
 def main() -> None:
     """Run the MCP server.
 
