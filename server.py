@@ -5,11 +5,11 @@ via FastMCP.
 """
 
 from typing import Optional, Dict, Any, List
-from fastmcp import FastMCP
-from pydsr import DSRGraph
+from fastmcp import FastMCP, Context
+from pydsr import DSRGraph, Node, Edge, Attribute
 
 # DSR Configuration
-AGENT_ID = 42                    # unique among agents
+AGENT_ID = 42             # unique among agents
 DSR_NAME = 'mcp_server'   # target DSR graph name
 
 # Global DSR instance
@@ -305,6 +305,232 @@ def get_node_details(node_identifier: str) -> dict:
         return {
             'error': f'Error retrieving node details: {str(e)}',
             'node': None
+        }
+
+
+@mcp.tool(
+    name='insert_node',
+    description='Insert a new node into the DSR graph.',
+    tags={'dsr', 'node', 'insert', 'graph'}
+)
+async def insert_node(name: str, node_type: str) -> dict:
+    """
+    Insert a new node into the DSR graph.
+
+    Args:
+        name (str): The name of the node to insert.
+        node_type (str): The type of the node to insert.
+
+    Returns:
+        dict: Dictionary with the result of the insertion or error message.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'node': None
+        }
+    try:
+        node = Node(AGENT_ID, node_type, name)
+        node_id = dsr_graph.insert_node(node)
+        return {
+            'success': True,
+            'message': 'Node inserted successfully.',
+            'node_id': str(node_id),
+            'node_name': name,
+            'node_type': node_type
+        }
+
+    except (AttributeError, RuntimeError, ValueError) as e:
+        return {
+            'success': False,
+            'error': f'Error inserting node: {str(e)}',
+            'node': None
+        }
+
+
+@mcp.tool(
+    name='insert_edge',
+    description='Insert a new edge between two nodes in the DSR graph',
+    tags={'dsr', 'edge', 'insert', 'graph'}
+)
+def insert_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
+    """
+    Insert a new edge between two nodes in the DSR graph.
+
+    Args:
+        origin_id (str): ID of the origin node.
+        destination_id (str): ID of the destination node.
+        edge_type (str): Type of the edge to insert.
+
+    Returns:
+        dict: Dictionary with the result of the insertion or error message.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'edge': None
+        }
+    try:
+        edge = Edge(int(origin_id), int(destination_id), edge_type, AGENT_ID)
+        success = dsr_graph.insert_or_assign_edge(edge)
+        if success:
+            return {
+                'success': True,
+                'message': 'Edge inserted successfully',
+                'origin_id': origin_id,
+                'destination_id': destination_id,
+                'edge_type': edge_type
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to insert edge',
+                'edge': None
+            }
+    except (AttributeError, RuntimeError, ValueError) as e:
+        return {
+            'success': False,
+            'error': f'Error inserting edge: {str(e)}',
+            'edge': None
+        }
+
+
+@mcp.tool(
+    name='update_node',
+    description='Update a node with new attributes in the DSR graph',
+    tags={'dsr', 'node', 'update', 'graph'}
+)
+def update_node(node_id: str, attribute_name: str,
+                attribute_value: str,
+                attribute_type: str = 'string') -> dict:
+    """
+    Update a node with new attributes in the DSR graph.
+
+    Uses DSRGraph.update_node method.
+
+    Args:
+        node_id (str): ID of the node to update.
+        attribute_name (str): Name of the attribute to update.
+        attribute_value (str): Value of the attribute.
+        attribute_type (str): Type of the attribute (string, int, float, bool).
+
+    Returns:
+        dict: Dictionary with the result of the update or error message.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'node': None
+        }
+    try:
+        # Get the existing node
+        node = dsr_graph.get_node(int(node_id))
+        if node is None:
+            return {
+                'error': f'Node {node_id} not found',
+                'node': None
+            }
+
+        # Convert attribute value to the appropriate type
+        converted_value: Any = attribute_value
+        if attribute_type == 'int':
+            converted_value = int(attribute_value)
+        elif attribute_type == 'float':
+            converted_value = float(attribute_value)
+        elif attribute_type == 'bool':
+            converted_value = attribute_value.lower() in (
+                'true', '1', 'yes', 'on')
+
+        # Create DSR Attribute and add it to the node
+        attribute = Attribute(converted_value, AGENT_ID)
+        node.attrs[attribute_name] = attribute
+
+        # Reference: DSRGraph.update_node(node: Node)
+        success = dsr_graph.update_node(node)
+        if success:
+            return {
+                'success': True,
+                'message': 'Node updated successfully',
+                'node_id': node_id,
+                'attribute_name': attribute_name,
+                'attribute_value': str(converted_value),
+                'attribute_type': attribute_type
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to update node',
+                'node': None
+            }
+    except (AttributeError, RuntimeError, ValueError) as e:
+        return {
+            'success': False,
+            'error': f'Error updating node: {str(e)}',
+            'node': None
+        }
+
+
+@mcp.tool(
+    name='insert_edge_attribute',
+    description='Insert or update an attribute for an edge in the DSR graph',
+    tags={'dsr', 'edge', 'attribute', 'insert', 'graph'}
+)
+def insert_edge_attribute(origin_id: str, destination_id: str,
+                          attribute_name: str, attribute_value: str,
+                          attribute_type: str = 'string') -> dict:
+    """
+    Insert or update an attribute for an edge in the DSR graph.
+
+    Args:
+        origin_id (str): ID of the origin node.
+        destination_id (str): ID of the destination node.
+        attribute_name (str): Name of the attribute to insert/update.
+        attribute_value (str): Value of the attribute.
+        attribute_type (str): Type of the attribute (string, int, float, bool).
+
+    Returns:
+        dict: Dictionary with the result of the insertion or error message.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'attribute': None
+        }
+    try:
+        # Convert attribute value to the appropriate type
+        converted_value: Any = attribute_value
+        if attribute_type == 'int':
+            converted_value = int(attribute_value)
+        elif attribute_type == 'float':
+            converted_value = float(attribute_value)
+        elif attribute_type == 'bool':
+            converted_value = attribute_value.lower() in (
+                'true', '1', 'yes', 'on')
+
+        success = dsr_graph.insert_edge_attribute(
+            int(origin_id), int(destination_id),
+            attribute_name, converted_value)
+        if success:
+            return {
+                'success': True,
+                'message': 'Edge attribute inserted successfully',
+                'origin_id': origin_id,
+                'destination_id': destination_id,
+                'attribute_name': attribute_name,
+                'attribute_value': str(converted_value),
+                'attribute_type': attribute_type
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to insert edge attribute',
+                'attribute': None
+            }
+    except (AttributeError, RuntimeError, ValueError) as e:
+        return {
+            'success': False,
+            'error': f'Error inserting edge attribute: {str(e)}',
+            'attribute': None
         }
 
 
