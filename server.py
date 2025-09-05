@@ -286,7 +286,13 @@ async def get_all_nodes(ctx: Context) -> dict:
 
 @mcp.tool(
     name='get_nodes_by_type',
-    description='Retrieve DSR nodes filtered by their type',
+    description="""Retrieve DSR nodes filtered by their type (e.g. robot,
+        person, human, battery, room). Helps narrow search before checking
+        relationships.
+        Intents: "Find all humans", "People near the robot"
+        (then call get_node_details per node).
+        Combine with get_node_details to inspect edges
+        (has, is, is_with) for presence / proximity reasoning.""",
     tags={'dsr', 'nodes', 'filter', 'type'}
 )
 async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
