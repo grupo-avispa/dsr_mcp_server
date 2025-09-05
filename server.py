@@ -208,11 +208,10 @@ def get_nodes_by_type(node_type: str) -> dict:
 
         for node in nodes:
             nodes_data.append({
-                'id': node.id,
+                'id': str(node.id),
                 'name': node.name,
                 'type': node.type
             })
-            print(node)
 
         return {
             'nodes': nodes_data,
@@ -232,11 +231,11 @@ def get_nodes_by_type(node_type: str) -> dict:
                 'including attributes and edges',
     tags={'dsr', 'node', 'details', 'attributes', 'edges'}
 )
-def get_node_details(node_identifier: int) -> dict:
+def get_node_details(node_identifier: str) -> dict:
     """Return detailed information about a specific node by ID.
 
     Args:
-        node_identifier (int): The ID of the node to retrieve.
+        node_identifier (str): The ID of the node to retrieve.
 
     Returns:
         dict: A dictionary containing the node details or an error message.
@@ -248,7 +247,7 @@ def get_node_details(node_identifier: int) -> dict:
         }
 
     try:
-        node = dsr_graph.get_node(node_identifier)
+        node = dsr_graph.get_node(int(node_identifier))
 
         if node is None:
             return {
@@ -257,99 +256,73 @@ def get_node_details(node_identifier: int) -> dict:
             }
 
         # Extract attributes
-        attributes = {}
+        # List of attribute names to exclude from the response.
+        # Add here any sensitive or noisy internal attributes.
+        EXCLUDED_NODE_ATTRIBUTES: list[str] = [
+            'color', 'depth', 'height', 'level', 'number', 'parent',
+            'pos_x', 'pos_y', 'texture', 'width'
+        ]
+        attributes: dict[str, dict[str, str]] = {}
         if hasattr(node, 'attrs'):
-            try:
-                for attr_name in node.attrs:
-                    try:
-                        attr_obj = node.attrs[attr_name]
-                        if hasattr(attr_obj, 'value'):
-                            value_str = str(attr_obj.value)
-                            type_name = type(attr_obj.value).__name__
-                        else:
-                            value_str = str(attr_obj)
-                            type_name = type(attr_obj).__name__
+            for attr_name in node.attrs:
+                # Skip excluded attributes
+                if attr_name in EXCLUDED_NODE_ATTRIBUTES:
+                    continue
+                try:
+                    attributes[attr_name] = {
+                        'value': str(node.attrs[attr_name].value),
+                        'type': type(node.attrs[attr_name].value).__name__,
+                        'timestamp': str(node.attrs[attr_name].timestamp)
+                    }
+                except Exception as e:
+                    attributes[attr_name] = {
+                        'error': f'Could not access attribute: {e}',
+                        'type': 'unknown'
+                    }
 
-                        timestamp = None
-                        if hasattr(attr_obj, 'timestamp'):
-                            timestamp = attr_obj.timestamp
-
-                        attributes[attr_name] = {
-                            'value': value_str,
-                            'type': type_name,
-                            'timestamp': timestamp
-                        }
-                    except Exception as e:
-                        attributes[attr_name] = {
-                            'error': f'Could not access attribute: {str(e)}',
-                            'type': 'unknown'
-                        }
-            except Exception as e:
-                attributes = {
-                    'error': f'Could not access attributes: {str(e)}'
-                }
-
-        # Extraer edges de forma segura
+        # Extract edges
         edges = []
-        if hasattr(node, 'edges'):
+        if hasattr(node, 'get_edges'):
             try:
-                # En DSR, node.edges es un diccionario con clave (node_id, edge_type)
-                for edge_key, edge in node.edges.items():
-                    to_node_id = 'unknown'
-                    edge_type = 'unknown'
+                node_edges = node.get_edges()
+                for edge in node_edges:
+                    # Default values
+                    origin_id = edge.origin
+                    destination_id = edge.destination
+                    edge_type = edge.type
 
-                    # La clave es una tupla (node_id, edge_type)
-                    if isinstance(edge_key, tuple) and len(edge_key) >= 2:
-                        to_node_id = edge_key[0]
-                        edge_type = edge_key[1]
-
-                    # El edge también tiene propiedades origin y destination
-                    origin_id = node.id  # Por defecto el nodo actual
-                    destination_id = to_node_id
-
-                    if hasattr(edge, 'origin'):
-                        origin_id = edge.origin
-                    if hasattr(edge, 'destination'):
-                        destination_id = edge.destination
-
-                    # Extraer atributos del edge si los tiene
-                    edge_attrs = {}
+                    # Extract edge attributes if present
+                    edge_attrs: dict = {}
                     if hasattr(edge, 'attrs'):
-                        try:
-                            for attr_name in edge.attrs:
-                                try:
-                                    attr_obj = edge.attrs[attr_name]
-                                    if hasattr(attr_obj, 'value'):
-                                        edge_attrs[attr_name] = {
-                                            'value': str(attr_obj.value),
-                                            'type': type(attr_obj.value).__name__
-                                        }
-                                except Exception:
-                                    edge_attrs[attr_name] = {
-                                        'error': 'Could not access'}
-                        except Exception:
-                            edge_attrs = {
-                                'error': 'Could not access edge attributes'}
+                        for attr_name in edge.attrs:
+                            try:
+                                edge_attrs[attr_name] = {
+                                    'value': str(edge.attrs[attr_name].value),
+                                    'type': type(edge.attrs[attr_name].value).
+                                    __name__,
+                                }
+                            except Exception:
+                                edge_attrs[attr_name] = {
+                                    'error': 'Could not access'
+                                }
 
                     edges.append({
-                        'to': destination_id,
-                        'from': origin_id,
-                        'type': edge_type,
-                        'attributes': edge_attrs
+                        'to': str(destination_id),
+                        'from': str(origin_id),
+                        'type': str(edge_type),
+                        'attributes': edge_attrs,
                     })
             except Exception as e:
-                edges = [{'error': f'Could not access edges: {str(e)}'}]
+                edges = [{'error': f'Could not access edges: {e}'}]
 
         return {
             'node': {
-                'id': node.id,
+                'id': str(node.id),
                 'name': node.name,
                 'type': node.type,
-                'agent_id': node.agent_id,
-                'attributes': attributes,
-                'edges': edges
-            },
-            'dsr_name': DSR_NAME
+                'edges': edges,
+                'attributes': attributes
+            }
         }
     except (AttributeError, RuntimeError) as e:
         return {
