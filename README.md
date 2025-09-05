@@ -141,8 +141,8 @@ All tools return standardized responses with the following structure:
 
 ## Dependencies
 
-- **fastmcp**: MCP server framework (>= 2.2.7)
-- **pydsr**: Python DSR library for graph operations
+- **[fastmcp](https://github.com/jlowin/fastmcp)**: MCP server framework (>= 2.2.7)
+- **[Cortex](https://github.com/grupo-avispa/cortex)**: DSR library
 - **Python**: 3.7+ required
 
 ### Contributing
