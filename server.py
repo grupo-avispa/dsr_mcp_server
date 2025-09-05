@@ -6,6 +6,7 @@ via FastMCP.
 
 from typing import Optional, Dict, Any, List
 from fastmcp import FastMCP, Context
+from fastmcp.utilities.logging import get_logger
 from pydsr import DSRGraph, Node, Edge, Attribute
 
 # DSR Configuration
@@ -17,6 +18,55 @@ dsr_graph: Optional[DSRGraph] = None
 
 # Create MCP application
 mcp = FastMCP('dsr-mcp-server')
+
+# Get logger
+logger = get_logger(__name__)
+
+
+def _create_success_response(
+    message: str,
+    data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Create a standardized success response.
+
+    Args:
+        message (str): Success message.
+        data (Optional[Dict[str, Any]]): Additional data to include.
+
+    Returns:
+        Dict[str, Any]: Standardized success response.
+    """
+    response = {
+        'success': True,
+        'message': message
+    }
+    if data:
+        response.update(data)
+    return response
+
+
+def _create_error_response(
+    error: str,
+    details: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Create a standardized error response.
+
+    Args:
+        error (str): Error message.
+        details (Optional[Dict[str, Any]]): Additional error details.
+
+    Returns:
+        Dict[str, Any]: Standardized error response.
+    """
+    response = {
+        'success': False,
+        'error': error
+    }
+    if details:
+        response.update(details)
+    return response
 
 
 def _init_dsr() -> bool:
@@ -30,7 +80,7 @@ def _init_dsr() -> bool:
         dsr_graph = DSRGraph(0, DSR_NAME, AGENT_ID)
         return True
     except (ImportError, RuntimeError, ConnectionError) as e:
-        print(f'Error initializing DSR: {e}')
+        logger.error(f'Error initializing DSR: {e}')
         return False
 
 
@@ -93,7 +143,7 @@ def _get_node_attributes(node) -> Dict[str, Dict[str, str]]:
                     'type': type(node.attrs[attr_name].value).__name__,
                     'timestamp': str(node.attrs[attr_name].timestamp)
                 }
-            except Exception as e:
+            except (AttributeError, KeyError, TypeError) as e:
                 attributes[attr_name] = {
                     'error': f'Could not access attribute: {e}',
                     'type': 'unknown'
@@ -129,7 +179,7 @@ def _get_node_edges(node) -> List[Dict[str, Any]]:
                                 'type': type(edge.attrs[attr_name].value).
                                 __name__,
                             }
-                        except Exception:
+                        except (AttributeError, KeyError, TypeError):
                             edge_attrs[attr_name] = {
                                 'error': 'Could not access'
                             }
@@ -139,7 +189,7 @@ def _get_node_edges(node) -> List[Dict[str, Any]]:
                     'type': str(edge_type),
                     'attributes': edge_attrs,
                 })
-        except Exception as e:
+        except (AttributeError, RuntimeError) as e:
             edges = [{'error': f'Could not access edges: {e}'}]
     return edges
 
@@ -149,21 +199,19 @@ def _get_node_edges(node) -> List[Dict[str, Any]]:
     description='Initialize or reinitialize the DSR connection',
     tags={'dsr', 'initialization', 'connection', 'setup'}
 )
-def initialize_dsr_connection() -> dict:
+async def initialize_dsr_connection(ctx: Context) -> dict:
     """Initialize or reinitialize the DSR connection."""
+    await ctx.info(f'Initializing DSR connection to {DSR_NAME}...')
+
     if _init_dsr():
         status = _check_dsr_connection()
-        return {
-            'success': True,
-            'message': 'DSR connection initialized successfully',
-            'status': status
-        }
+        status_msg = 'DSR connection initialized successfully'
+        await ctx.info(status_msg)
+        return _create_success_response(status_msg, {'status': status})
     else:
-        return {
-            'success': False,
-            'message': 'Failed to initialize DSR',
-            'error': 'Unknown error'
-        }
+        error_msg = 'Failed to initialize DSR connection'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'error': 'Unknown error'})
 
 
 @mcp.tool(
@@ -171,16 +219,20 @@ def initialize_dsr_connection() -> dict:
     description='Check DSR connection and return status information',
     tags={'dsr', 'connection', 'health', 'status', 'configuration'}
 )
-def check_dsr() -> str:
+async def check_dsr(ctx: Context) -> str:
     """Check DSR connection and return status information."""
+    await ctx.info('Checking DSR connection status...')
+
     status = _check_dsr_connection()
     if status['connected']:
         root_id = status.get('root_node_id', 'Unknown')
+        await ctx.info('DSR connection is active')
         return (f'DSR Status: Connected\n'
                 f'Agent ID: {status["agent_id"]}\n'
                 f'DSR Name: {status["dsr_name"]}\n'
                 f'Root Node ID: {root_id}')
     else:
+        await ctx.warning(f'DSR connection is not active: {status["message"]}')
         return (f'DSR Status: Disconnected\n'
                 f'Reason: {status["message"]}\n'
                 f'Agent ID: {status["agent_id"]}\n'
@@ -192,18 +244,20 @@ def check_dsr() -> str:
     description='Retrieve all nodes from the DSR graph',
     tags={'dsr', 'nodes', 'graph', 'query'}
 )
-def get_all_nodes() -> dict:
+async def get_all_nodes(ctx: Context) -> dict:
     """
     Return all nodes from the DSR graph with their basic information.
 
     Returns:
         dict: Dictionary containing a list of nodes and their basic info.
     """
+    await ctx.info('Retrieving all nodes from DSR graph...')
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'nodes': []
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         nodes = dsr_graph.get_nodes()
         nodes_data = []
@@ -214,16 +268,20 @@ def get_all_nodes() -> dict:
                 'type': node.type,
                 'agent_id': getattr(node, 'agent_id', None)
             })
-        return {
-            'nodes': nodes_data,
-            'count': len(nodes_data),
-            'dsr_name': DSR_NAME
-        }
+
+        await ctx.info(f'Retrieved {len(nodes_data)} nodes successfully')
+        return _create_success_response(
+            f'Retrieved {len(nodes_data)} nodes',
+            {
+                'nodes': nodes_data,
+                'count': len(nodes_data),
+                'dsr_name': DSR_NAME
+            }
+        )
     except (AttributeError, RuntimeError) as e:
-        return {
-            'error': f'Error retrieving nodes: {str(e)}',
-            'nodes': []
-        }
+        error_msg = f'Error retrieving nodes: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
 
 
 @mcp.tool(
@@ -231,13 +289,14 @@ def get_all_nodes() -> dict:
     description='Retrieve DSR nodes filtered by their type',
     tags={'dsr', 'nodes', 'filter', 'type'}
 )
-def get_nodes_by_type(node_type: str) -> dict:
+async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
     """Return nodes filtered by their type from the DSR graph."""
+    await ctx.info(f'Retrieving nodes of type: {node_type}')
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'nodes': []
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
 
     try:
         nodes = dsr_graph.get_nodes_by_type(node_type)
@@ -250,16 +309,21 @@ def get_nodes_by_type(node_type: str) -> dict:
                 'type': node.type
             })
 
-        return {
-            'nodes': nodes_data,
-            'count': len(nodes_data),
-            'type': node_type
-        }
+        await ctx.info(
+            f'Retrieved {len(nodes_data)} nodes of type {node_type}'
+        )
+        return _create_success_response(
+            f'Retrieved {len(nodes_data)} nodes of type {node_type}',
+            {
+                'nodes': nodes_data,
+                'count': len(nodes_data),
+                'type': node_type
+            }
+        )
     except (AttributeError, RuntimeError) as e:
-        return {
-            'error': f'Error retrieving nodes by type: {str(e)}',
-            'nodes': []
-        }
+        error_msg = f'Error retrieving nodes by type: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
 
 
 @mcp.tool(
@@ -268,7 +332,7 @@ def get_nodes_by_type(node_type: str) -> dict:
                 'including attributes and edges',
     tags={'dsr', 'node', 'details', 'attributes', 'edges'}
 )
-def get_node_details(node_identifier: str) -> dict:
+async def get_node_details(node_identifier: str, ctx: Context) -> dict:
     """Return detailed information about a specific node by ID.
 
     Args:
@@ -277,35 +341,40 @@ def get_node_details(node_identifier: str) -> dict:
     Returns:
         dict: A dictionary containing the node details or an error message.
     """
+    await ctx.info(f'Retrieving details for node: {node_identifier}')
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'node': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
 
     try:
         node = dsr_graph.get_node(int(node_identifier))
         if node is None:
-            return {
-                'error': f'Node {node_identifier} not found',
-                'node': None
-            }
+            error_msg = f'Node {node_identifier} not found'
+            await ctx.warning(error_msg)
+            return _create_error_response(error_msg, {'node': None})
+
         attributes = _get_node_attributes(node)
         edges = _get_node_edges(node)
-        return {
-            'node': {
-                'id': str(node.id),
-                'name': node.name,
-                'type': node.type,
-                'edges': edges,
-                'attributes': attributes
+
+        await ctx.info(f'Retrieved details for node {node_identifier}')
+        return _create_success_response(
+            f'Retrieved details for node {node_identifier}',
+            {
+                'node': {
+                    'id': str(node.id),
+                    'name': node.name,
+                    'type': node.type,
+                    'edges': edges,
+                    'attributes': attributes
+                }
             }
-        }
+        )
     except (AttributeError, RuntimeError) as e:
-        return {
-            'error': f'Error retrieving node details: {str(e)}',
-            'node': None
-        }
+        error_msg = f'Error retrieving node details: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'node': None})
 
 
 @mcp.tool(
@@ -313,7 +382,7 @@ def get_node_details(node_identifier: str) -> dict:
     description='Insert a new node into the DSR graph.',
     tags={'dsr', 'node', 'insert', 'graph'}
 )
-async def insert_node(name: str, node_type: str) -> dict:
+async def insert_node(name: str, node_type: str, ctx: Context) -> dict:
     """
     Insert a new node into the DSR graph.
 
@@ -324,28 +393,30 @@ async def insert_node(name: str, node_type: str) -> dict:
     Returns:
         dict: Dictionary with the result of the insertion or error message.
     """
+    await ctx.info(f'Inserting new node: {name} (type: {node_type})')
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'node': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         node = Node(AGENT_ID, node_type, name)
         node_id = dsr_graph.insert_node(node)
-        return {
-            'success': True,
-            'message': 'Node inserted successfully.',
-            'node_id': str(node_id),
-            'node_name': name,
-            'node_type': node_type
-        }
 
+        await ctx.info(f'Node inserted successfully with ID: {node_id}')
+        return _create_success_response(
+            'Node inserted successfully',
+            {
+                'node_id': str(node_id),
+                'node_name': name,
+                'node_type': node_type
+            }
+        )
     except (AttributeError, RuntimeError, ValueError) as e:
-        return {
-            'success': False,
-            'error': f'Error inserting node: {str(e)}',
-            'node': None
-        }
+        error_msg = f'Error inserting node: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'node': None})
 
 
 @mcp.tool(
@@ -353,7 +424,8 @@ async def insert_node(name: str, node_type: str) -> dict:
     description='Insert a new edge between two nodes in the DSR graph',
     tags={'dsr', 'edge', 'insert', 'graph'}
 )
-def insert_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
+async def insert_edge(origin_id: str, destination_id: str, edge_type: str,
+                      ctx: Context) -> dict:
     """
     Insert a new edge between two nodes in the DSR graph.
 
@@ -365,34 +437,38 @@ def insert_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
     Returns:
         dict: Dictionary with the result of the insertion or error message.
     """
+    await ctx.info(
+        f'Inserting edge: {origin_id} -> {destination_id} (type: {edge_type})'
+    )
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'edge': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         edge = Edge(int(origin_id), int(destination_id), edge_type, AGENT_ID)
         success = dsr_graph.insert_or_assign_edge(edge)
+
         if success:
-            return {
-                'success': True,
-                'message': 'Edge inserted successfully',
-                'origin_id': origin_id,
-                'destination_id': destination_id,
-                'edge_type': edge_type
-            }
+            await ctx.info('Edge inserted successfully')
+            return _create_success_response(
+                'Edge inserted successfully',
+                {
+                    'origin_id': origin_id,
+                    'destination_id': destination_id,
+                    'edge_type': edge_type
+                }
+            )
         else:
-            return {
-                'success': False,
-                'error': 'Failed to insert edge',
-                'edge': None
-            }
+            error_msg = 'Failed to insert edge'
+            await ctx.error(error_msg)
+            return _create_error_response(error_msg, {'edge': None}
+                                          )
     except (AttributeError, RuntimeError, ValueError) as e:
-        return {
-            'success': False,
-            'error': f'Error inserting edge: {str(e)}',
-            'edge': None
-        }
+        error_msg = f'Error inserting edge: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'edge': None})
 
 
 @mcp.tool(
@@ -400,9 +476,9 @@ def insert_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
     description='Update a node with new attributes in the DSR graph',
     tags={'dsr', 'node', 'update', 'graph'}
 )
-def update_node(node_id: str, attribute_name: str,
-                attribute_value: str,
-                attribute_type: str = 'string') -> dict:
+async def update_node(node_id: str, attribute_name: str,
+                      attribute_value: str, ctx: Context,
+                      attribute_type: str = 'string') -> dict:
     """
     Update a node with new attributes in the DSR graph.
 
@@ -417,19 +493,22 @@ def update_node(node_id: str, attribute_name: str,
     Returns:
         dict: Dictionary with the result of the update or error message.
     """
+    await ctx.info(
+        f'Updating node {node_id} with attribute {attribute_name}'
+    )
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'node': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         # Get the existing node
         node = dsr_graph.get_node(int(node_id))
         if node is None:
-            return {
-                'error': f'Node {node_id} not found',
-                'node': None
-            }
+            error_msg = f'Node {node_id} not found'
+            await ctx.warning(error_msg)
+            return _create_error_response(error_msg, {'node': None})
 
         # Convert attribute value to the appropriate type
         converted_value: Any = attribute_value
@@ -448,26 +527,24 @@ def update_node(node_id: str, attribute_name: str,
         # Reference: DSRGraph.update_node(node: Node)
         success = dsr_graph.update_node(node)
         if success:
-            return {
-                'success': True,
-                'message': 'Node updated successfully',
-                'node_id': node_id,
-                'attribute_name': attribute_name,
-                'attribute_value': str(converted_value),
-                'attribute_type': attribute_type
-            }
+            await ctx.info('Node updated successfully')
+            return _create_success_response(
+                'Node updated successfully',
+                {
+                    'node_id': node_id,
+                    'attribute_name': attribute_name,
+                    'attribute_value': str(converted_value),
+                    'attribute_type': attribute_type
+                }
+            )
         else:
-            return {
-                'success': False,
-                'error': 'Failed to update node',
-                'node': None
-            }
+            error_msg = 'Failed to update node'
+            await ctx.error(error_msg)
+            return _create_error_response(error_msg, {'node': None})
     except (AttributeError, RuntimeError, ValueError) as e:
-        return {
-            'success': False,
-            'error': f'Error updating node: {str(e)}',
-            'node': None
-        }
+        error_msg = f'Error updating node: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'node': None})
 
 
 @mcp.tool(
@@ -475,9 +552,10 @@ def update_node(node_id: str, attribute_name: str,
     description='Insert or update an attribute for an edge in the DSR graph',
     tags={'dsr', 'edge', 'attribute', 'insert', 'graph'}
 )
-def insert_edge_attribute(origin_id: str, destination_id: str,
-                          attribute_name: str, attribute_value: str,
-                          attribute_type: str = 'string') -> dict:
+async def insert_edge_attribute(origin_id: str, destination_id: str,
+                                attribute_name: str, attribute_value: str,
+                                ctx: Context,
+                                attribute_type: str = 'string') -> dict:
     """
     Insert or update an attribute for an edge in the DSR graph.
 
@@ -491,11 +569,16 @@ def insert_edge_attribute(origin_id: str, destination_id: str,
     Returns:
         dict: Dictionary with the result of the insertion or error message.
     """
+    await ctx.info(
+        f'Inserting edge attribute {attribute_name} for edge '
+        f'{origin_id} -> {destination_id}'
+    )
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'attribute': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         # Convert attribute value to the appropriate type
         converted_value: Any = attribute_value
@@ -510,28 +593,27 @@ def insert_edge_attribute(origin_id: str, destination_id: str,
         success = dsr_graph.insert_edge_attribute(
             int(origin_id), int(destination_id),
             attribute_name, converted_value)
+
         if success:
-            return {
-                'success': True,
-                'message': 'Edge attribute inserted successfully',
-                'origin_id': origin_id,
-                'destination_id': destination_id,
-                'attribute_name': attribute_name,
-                'attribute_value': str(converted_value),
-                'attribute_type': attribute_type
-            }
+            await ctx.info('Edge attribute inserted successfully')
+            return _create_success_response(
+                'Edge attribute inserted successfully',
+                {
+                    'origin_id': origin_id,
+                    'destination_id': destination_id,
+                    'attribute_name': attribute_name,
+                    'attribute_value': str(converted_value),
+                    'attribute_type': attribute_type
+                }
+            )
         else:
-            return {
-                'success': False,
-                'error': 'Failed to insert edge attribute',
-                'attribute': None
-            }
+            error_msg = 'Failed to insert edge attribute'
+            await ctx.error(error_msg)
+            return _create_error_response(error_msg, {'attribute': None})
     except (AttributeError, RuntimeError, ValueError) as e:
-        return {
-            'success': False,
-            'error': f'Error inserting edge attribute: {str(e)}',
-            'attribute': None
-        }
+        error_msg = f'Error inserting edge attribute: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'attribute': None})
 
 
 @mcp.tool(
@@ -539,7 +621,7 @@ def insert_edge_attribute(origin_id: str, destination_id: str,
     description='Delete a node from the DSR graph',
     tags={'dsr', 'node', 'delete', 'graph'}
 )
-def delete_node(node_id: str) -> dict:
+async def delete_node(node_id: str, ctx: Context) -> dict:
     """
     Delete a node from the DSR graph.
 
@@ -549,32 +631,30 @@ def delete_node(node_id: str) -> dict:
     Returns:
         dict: Dictionary with the result of the deletion or error message.
     """
+    await ctx.info(f'Deleting node: {node_id}')
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'node': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         # Reference: DSRGraph.delete_node(node_id)
         success = dsr_graph.delete_node(int(node_id))
         if success:
-            return {
-                'success': True,
-                'message': 'Node deleted successfully',
-                'node_id': node_id
-            }
+            await ctx.info(f'Node {node_id} deleted successfully')
+            return _create_success_response(
+                'Node deleted successfully',
+                {'node_id': node_id}
+            )
         else:
-            return {
-                'success': False,
-                'error': 'Failed to delete node',
-                'node': None
-            }
+            error_msg = 'Failed to delete node'
+            await ctx.error(error_msg)
+            return _create_error_response(error_msg, {'node': None})
     except (AttributeError, RuntimeError, ValueError) as e:
-        return {
-            'success': False,
-            'error': f'Error deleting node: {str(e)}',
-            'node': None
-        }
+        error_msg = f'Error deleting node: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'node': None})
 
 
 @mcp.tool(
@@ -582,7 +662,8 @@ def delete_node(node_id: str) -> dict:
     description='Delete an edge from the DSR graph',
     tags={'dsr', 'edge', 'delete', 'graph'}
 )
-def delete_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
+async def delete_edge(origin_id: str, destination_id: str, edge_type: str,
+                      ctx: Context) -> dict:
     """
     Delete an edge from the DSR graph.
 
@@ -594,35 +675,38 @@ def delete_edge(origin_id: str, destination_id: str, edge_type: str) -> dict:
     Returns:
         dict: Dictionary with the result of the deletion or error message.
     """
+    await ctx.info(
+        f'Deleting edge: {origin_id} -> {destination_id} (type: {edge_type})'
+    )
+
     if dsr_graph is None:
-        return {
-            'error': 'DSR not initialized',
-            'edge': None
-        }
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
     try:
         # Reference: DSRGraph.delete_edge(origin_id, destination_id, edge_type)
         success = dsr_graph.delete_edge(
             int(origin_id), int(destination_id), edge_type)
+
         if success:
-            return {
-                'success': True,
-                'message': 'Edge deleted successfully',
-                'origin_id': origin_id,
-                'destination_id': destination_id,
-                'edge_type': edge_type
-            }
+            await ctx.info('Edge deleted successfully')
+            return _create_success_response(
+                'Edge deleted successfully',
+                {
+                    'origin_id': origin_id,
+                    'destination_id': destination_id,
+                    'edge_type': edge_type
+                }
+            )
         else:
-            return {
-                'success': False,
-                'error': 'Failed to delete edge',
-                'edge': None
-            }
+            error_msg = 'Failed to delete edge'
+            await ctx.error(error_msg)
+            return _create_error_response(error_msg, {'edge': None})
     except (AttributeError, RuntimeError, ValueError) as e:
-        return {
-            'success': False,
-            'error': f'Error deleting edge: {str(e)}',
-            'edge': None
-        }
+        error_msg = f'Error deleting edge: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'edge': None})
 
 
 def main() -> None:
@@ -633,11 +717,11 @@ def main() -> None:
     Default transport is http for local MCP integration.
     """
     # Initialize DSR connection on startup
-    print(f'Initializing DSR connection to {DSR_NAME}...')
+    logger.info(f'Initializing DSR connection to {DSR_NAME}...')
     if _init_dsr():
-        print('DSR initialized successfully')
+        logger.info('DSR initialized successfully')
     else:
-        print('Warning: Could not initialize DSR on startup')
+        logger.warning('Could not initialize DSR on startup')
 
     mcp.run(transport='http', host='127.0.0.1', port=3000)
     # mcp.run()
