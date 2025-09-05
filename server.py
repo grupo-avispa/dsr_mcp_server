@@ -453,7 +453,7 @@ async def insert_edge(origin_id: str, destination_id: str, edge_type: str,
         return _create_error_response(error_msg, {'nodes': []})
 
     try:
-        edge = Edge(int(origin_id), int(destination_id), edge_type, AGENT_ID)
+        edge = Edge(int(destination_id), int(origin_id), edge_type, AGENT_ID)
         success = dsr_graph.insert_or_assign_edge(edge)
 
         if success:
