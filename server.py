@@ -4,7 +4,7 @@ This module exposes tools and resources for communicating with the DSR
 via FastMCP.
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from fastmcp import FastMCP
 from pydsr import DSRGraph
 
@@ -67,83 +67,81 @@ def _check_dsr_connection() -> dict:
         }
 
 
-# @mcp.tool(
-#     name='get_all_dsr_nodes',
-#     description='Retrieve all nodes from the DSR graph',
-#     tags={'dsr', 'nodes', 'graph', 'query'}
-# )
-# def get_all_nodes() -> dict:
-#     """Return all nodes from the DSR graph with their basic information."""
-#     if dsr_graph is None:
-#         return {
-#             'error': 'DSR not initialized',
-#             'nodes': []
-#         }
+def _get_node_attributes(node) -> Dict[str, Dict[str, str]]:
+    """
+    Return a dictionary with all attributes of a node, excluding internal ones.
 
-#     try:
-#         # Get root node first
-#         root_node = dsr_graph.get_node_root()
-#         nodes_data = []
+    Args:
+        node: Node object from DSRGraph.
 
-#         if root_node:
-#             nodes_data.append({
-#                 'id': root_node.id,
-#                 'name': root_node.name,
-#                 'type': root_node.type,
-#                 'agent_id': root_node.agent_id,
-#                 'is_root': True
-#             })
-
-#         return {
-#             'nodes': nodes_data,
-#             'count': len(nodes_data),
-#             'dsr_name': DSR_NAME
-#         }
-#     except (AttributeError, RuntimeError) as e:
-#         return {
-#             'error': f'Error retrieving nodes: {str(e)}',
-#             'nodes': []
-#         }
+    Returns:
+        Dict[str, Dict[str, str]]: Dictionary of attribute names and
+        their details (value, type, timestamp).
+    """
+    EXCLUDED_NODE_ATTRIBUTES: List[str] = [
+        'color', 'depth', 'height', 'level', 'number', 'parent',
+        'pos_x', 'pos_y', 'texture', 'width'
+    ]
+    attributes: Dict[str, Dict[str, str]] = {}
+    if hasattr(node, 'attrs'):
+        for attr_name in node.attrs:
+            if attr_name in EXCLUDED_NODE_ATTRIBUTES:
+                continue
+            try:
+                attributes[attr_name] = {
+                    'value': str(node.attrs[attr_name].value),
+                    'type': type(node.attrs[attr_name].value).__name__,
+                    'timestamp': str(node.attrs[attr_name].timestamp)
+                }
+            except Exception as e:
+                attributes[attr_name] = {
+                    'error': f'Could not access attribute: {e}',
+                    'type': 'unknown'
+                }
+    return attributes
 
 
-# @mcp.tool(
-#     name='get_dsr_nodes_legacy',
-#     description='Legacy endpoint to retrieve all DSR nodes '
-#                 '(deprecated, use get_all_dsr_nodes instead)',
-#     tags={'dsr', 'nodes', 'legacy', 'deprecated'}
-# )
-# def get_nodes() -> dict:
-#     """Return all nodes from the DSR (legacy endpoint)."""
-#     if dsr_graph is None:
-#         return {
-#             'error': 'DSR not initialized',
-#             'nodes': []
-#         }
+def _get_node_edges(node) -> List[Dict[str, Any]]:
+    """
+    Return a list of dictionaries with all edges of a node.
 
-#     try:
-#         # Get root node first
-#         root_node = dsr_graph.get_node_root()
-#         nodes_data = []
+    Args:
+        node: Node object from DSRGraph.
 
-#         if root_node:
-#             nodes_data.append({
-#                 'id': root_node.id,
-#                 'name': root_node.name,
-#                 'type': root_node.type,
-#                 'agent_id': root_node.agent_id,
-#                 'is_root': True
-#             })
-
-#         return {
-#             'nodes': nodes_data,
-#             'count': len(nodes_data),
-#             'dsr_name': DSR_NAME
-#         }
-#     except (AttributeError, RuntimeError) as e:
-#         return {
-#             'error': f'Error retrieving nodes: {str(e)}',
-#             'nodes': []
-#         }
+    Returns:
+        List[Dict[str, Any]]: List of edge details (origin, destination,
+        type, attributes).
+    """
+    edges = []
+    if hasattr(node, 'get_edges'):
+        try:
+            node_edges = node.get_edges()
+            for edge in node_edges:
+                origin_id = edge.origin
+                destination_id = edge.destination
+                edge_type = edge.type
+                edge_attrs: Dict = {}
+                if hasattr(edge, 'attrs'):
+                    for attr_name in edge.attrs:
+                        try:
+                            edge_attrs[attr_name] = {
+                                'value': str(edge.attrs[attr_name].value),
+                                'type': type(edge.attrs[attr_name].value).
+                                __name__,
+                            }
+                        except Exception:
+                            edge_attrs[attr_name] = {
+                                'error': 'Could not access'
+                            }
+                edges.append({
+                    'to': str(destination_id),
+                    'from': str(origin_id),
+                    'type': str(edge_type),
+                    'attributes': edge_attrs,
+                })
+        except Exception as e:
+            edges = [{'error': f'Could not access edges: {e}'}]
+    return edges
 
 
 @mcp.tool(
@@ -187,6 +185,45 @@ def check_dsr() -> str:
                 f'Reason: {status["message"]}\n'
                 f'Agent ID: {status["agent_id"]}\n'
                 f'DSR Name: {status["dsr_name"]}')
+
+
+@mcp.tool(
+    name='get_all_nodes',
+    description='Retrieve all nodes from the DSR graph',
+    tags={'dsr', 'nodes', 'graph', 'query'}
+)
+def get_all_nodes() -> dict:
+    """
+    Return all nodes from the DSR graph with their basic information.
+
+    Returns:
+        dict: Dictionary containing a list of nodes and their basic info.
+    """
+    if dsr_graph is None:
+        return {
+            'error': 'DSR not initialized',
+            'nodes': []
+        }
+    try:
+        nodes = dsr_graph.get_nodes()
+        nodes_data = []
+        for node in nodes:
+            nodes_data.append({
+                'id': str(node.id),
+                'name': node.name,
+                'type': node.type,
+                'agent_id': getattr(node, 'agent_id', None)
+            })
+        return {
+            'nodes': nodes_data,
+            'count': len(nodes_data),
+            'dsr_name': DSR_NAME
+        }
+    except (AttributeError, RuntimeError) as e:
+        return {
+            'error': f'Error retrieving nodes: {str(e)}',
+            'nodes': []
+        }
 
 
 @mcp.tool(
@@ -248,73 +285,13 @@ def get_node_details(node_identifier: str) -> dict:
 
     try:
         node = dsr_graph.get_node(int(node_identifier))
-
         if node is None:
             return {
                 'error': f'Node {node_identifier} not found',
                 'node': None
             }
-
-        # Extract attributes
-        # List of attribute names to exclude from the response.
-        # Add here any sensitive or noisy internal attributes.
-        EXCLUDED_NODE_ATTRIBUTES: list[str] = [
-            'color', 'depth', 'height', 'level', 'number', 'parent',
-            'pos_x', 'pos_y', 'texture', 'width'
-        ]
-        attributes: dict[str, dict[str, str]] = {}
-        if hasattr(node, 'attrs'):
-            for attr_name in node.attrs:
-                # Skip excluded attributes
-                if attr_name in EXCLUDED_NODE_ATTRIBUTES:
-                    continue
-                try:
-                    attributes[attr_name] = {
-                        'value': str(node.attrs[attr_name].value),
-                        'type': type(node.attrs[attr_name].value).__name__,
-                        'timestamp': str(node.attrs[attr_name].timestamp)
-                    }
-                except Exception as e:
-                    attributes[attr_name] = {
-                        'error': f'Could not access attribute: {e}',
-                        'type': 'unknown'
-                    }
-
-        # Extract edges
-        edges = []
-        if hasattr(node, 'get_edges'):
-            try:
-                node_edges = node.get_edges()
-                for edge in node_edges:
-                    # Default values
-                    origin_id = edge.origin
-                    destination_id = edge.destination
-                    edge_type = edge.type
-
-                    # Extract edge attributes if present
-                    edge_attrs: dict = {}
-                    if hasattr(edge, 'attrs'):
-                        for attr_name in edge.attrs:
-                            try:
-                                edge_attrs[attr_name] = {
-                                    'value': str(edge.attrs[attr_name].value),
-                                    'type': type(edge.attrs[attr_name].value).
-                                    __name__,
-                                }
-                            except Exception:
-                                edge_attrs[attr_name] = {
-                                    'error': 'Could not access'
-                                }
-
-                    edges.append({
-                        'to': str(destination_id),
-                        'from': str(origin_id),
-                        'type': str(edge_type),
-                        'attributes': edge_attrs,
-                    })
-            except Exception as e:
-                edges = [{'error': f'Could not access edges: {e}'}]
-
+        attributes = _get_node_attributes(node)
+        edges = _get_node_edges(node)
         return {
             'node': {
                 'id': str(node.id),
@@ -329,87 +306,6 @@ def get_node_details(node_identifier: str) -> dict:
             'error': f'Error retrieving node details: {str(e)}',
             'node': None
         }
-
-# @mcp.tool(
-#     name='search_nodes',
-#     description='Search for nodes in the DSR by name pattern or attributes',
-#     tags={'dsr', 'search', 'nodes', 'query', 'filter'}
-# )
-# def search_nodes(search_term: str, search_type: str = 'name') -> dict:
-#     """Search for nodes by name pattern or other criteria.
-
-#     Args:
-#         search_term: The term to search for
-#         search_type: Type of search ('name', 'type', 'all')
-#     """
-#     if dsr_graph is None:
-#         return {
-#             'error': 'DSR not initialized',
-#             'results': []
-#         }
-
-#     try:
-#         results = []
-#         # This is a simplified search - in a real implementation,
-#         # you would use actual DSR search capabilities
-
-#         if search_type == 'name':
-#             # Search by name (simplified - would need actual DSR API)
-#             results.append({
-#                 'message': (f'Searching for nodes with name containing: '
-#                            f'{search_term}'),
-#                 'search_type': search_type,
-#                 'term': search_term
-#             })
-#         elif search_type == 'type':
-#             # Delegate to get_nodes_by_type function directly
-#             if dsr_graph is None:
-#                 return {
-#                     'error': 'DSR not initialized',
-#                     'nodes': []
-#                 }
-
-#             try:
-#                 nodes = dsr_graph.get_nodes_by_type(search_term)
-#                 nodes_data = []
-
-#                 for node in nodes:
-#                     nodes_data.append({
-#                         'id': node.id,
-#                         'name': node.name,
-#                         'type': node.type,
-#                         'agent_id': node.agent_id
-#                     })
-
-#                 return {
-#                     'nodes': nodes_data,
-#                     'count': len(nodes_data),
-#                     'filter_type': search_term,
-#                     'dsr_name': DSR_NAME
-#                 }
-#             except (AttributeError, RuntimeError) as e:
-#                 return {
-#                     'error': f'Error retrieving nodes by type: {str(e)}',
-#                     'nodes': []
-#                 }
-#         else:
-#             results.append({
-#                 'message': f'General search for: {search_term}',
-#                 'search_type': search_type,
-#                 'term': search_term
-#             })
-
-#         return {
-#             'results': results,
-#             'count': len(results),
-#             'search_term': search_term,
-#             'search_type': search_type
-#         }
-#     except (AttributeError, RuntimeError) as e:
-#         return {
-#             'error': f'Error searching nodes: {str(e)}',
-#             'results': []
-#         }
 
 
 def main() -> None:
