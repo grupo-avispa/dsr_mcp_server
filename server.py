@@ -85,7 +85,8 @@ def _create_error_response(
 
 
 def _init_dsr() -> bool:
-    """Initialize DSR connection.
+    """
+    Initialize DSR connection.
 
     Returns:
         bool: True if connection successful, False otherwise.
@@ -100,7 +101,8 @@ def _init_dsr() -> bool:
 
 
 def _check_dsr_connection() -> dict:
-    """Check DSR connection status.
+    """
+    Check DSR connection status.
 
     Returns:
         dict: Connection status information.
@@ -132,12 +134,12 @@ def _check_dsr_connection() -> dict:
         }
 
 
-def _get_node_attributes(node) -> Dict[str, Dict[str, str]]:
+def _get_node_attributes(node: Node) -> Dict[str, Dict[str, str]]:
     """
-    Return a dictionary with all attributes of a node, excluding internal ones.
+    Retrieve all attributes of a node.
 
     Args:
-        node: Node object from DSRGraph.
+        node (Node): Node object from DSRGraph.
 
     Returns:
         Dict[str, Dict[str, str]]: Dictionary of attribute names and
@@ -166,13 +168,12 @@ def _get_node_attributes(node) -> Dict[str, Dict[str, str]]:
     return attributes
 
 
-def _get_node_edges(node) -> List[Dict[str, Any]]:
+def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
     """
-    Return a list of dictionaries with all outgoing and incoming edges
-    of a node.
+    Retrieve all outgoing and incoming edges of a node.
 
     Args:
-        node: Node object from DSRGraph.
+        node (Node): Node object from DSRGraph.
 
     Returns:
         List[Dict[str, Any]]: List of edge details (origin, destination,
@@ -391,7 +392,18 @@ async def get_all_nodes(ctx: Context) -> dict:
     tags={'dsr', 'nodes', 'filter', 'type'}
 )
 async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
-    """Return nodes filtered by their type from the DSR graph."""
+    """
+    Retrieve nodes filtered by their type from the DSR graph.
+
+    Parameters:
+        node_type (str): The type of nodes to retrieve
+            (e.g., robot, person, human, battery, room).
+        ctx (Context): The MCP context object.
+
+    Returns:
+        dict: Standardized response containing a list of nodes of the
+            specified type y su información básica, o un mensaje de error.
+    """
     await ctx.info(f'Retrieving nodes of type: {node_type}')
 
     if dsr_graph is None:
@@ -434,7 +446,8 @@ async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
     tags={'dsr', 'node', 'details', 'attributes', 'edges'}
 )
 async def get_node_details(node_identifier: str, ctx: Context) -> dict:
-    """Return detailed information about a specific node by ID.
+    """
+    Return detailed information about a specific node by ID.
 
     Args:
         node_identifier (str): The ID of the node to retrieve.
@@ -582,8 +595,6 @@ async def update_node(node_id: str, attribute_name: str,
                       attribute_type: str = 'string') -> dict:
     """
     Update a node with new attributes in the DSR graph.
-
-    Uses DSRGraph.update_node method.
 
     Args:
         node_id (str): ID of the node to update.
@@ -811,7 +822,8 @@ async def delete_edge(origin_id: str, destination_id: str, edge_type: str,
 
 
 def main() -> None:
-    """Run the MCP server.
+    """
+    Run the MCP server.
 
     Notes
     -----
