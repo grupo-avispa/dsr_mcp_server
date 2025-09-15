@@ -168,7 +168,8 @@ def _get_node_attributes(node) -> Dict[str, Dict[str, str]]:
 
 def _get_node_edges(node) -> List[Dict[str, Any]]:
     """
-    Return a list of dictionaries with all edges of a node.
+    Return a list of dictionaries with all outgoing and incoming edges
+    of a node.
 
     Args:
         node: Node object from DSRGraph.
@@ -178,10 +179,13 @@ def _get_node_edges(node) -> List[Dict[str, Any]]:
         type, attributes).
     """
     edges = []
-    if hasattr(node, 'get_edges'):
+
+    # Try to get edges using the edges property (node.fano() in C++)
+    if hasattr(node, 'edges'):
         try:
-            node_edges = node.get_edges()
-            for edge in node_edges:
+            # Access the edges map directly
+            node_edges_map = node.edges
+            for edge in node_edges_map.values():
                 origin_id = edge.origin
                 destination_id = edge.destination
                 edge_type = edge.type
@@ -191,8 +195,8 @@ def _get_node_edges(node) -> List[Dict[str, Any]]:
                         try:
                             edge_attrs[attr_name] = {
                                 'value': str(edge.attrs[attr_name].value),
-                                'type': type(edge.attrs[attr_name].value).
-                                __name__,
+                                'type': type(
+                                    edge.attrs[attr_name].value).__name__,
                             }
                         except (AttributeError, KeyError, TypeError):
                             edge_attrs[attr_name] = {
@@ -205,7 +209,83 @@ def _get_node_edges(node) -> List[Dict[str, Any]]:
                     'attributes': edge_attrs,
                 })
         except (AttributeError, RuntimeError) as e:
-            edges = [{'error': f'Could not access edges: {e}'}]
+            # Fallback: try using get_edges method if available
+            if hasattr(node, 'get_edges'):
+                try:
+                    node_edges = node.get_edges()
+                    for edge in node_edges:
+                        origin_id = edge.origin
+                        destination_id = edge.destination
+                        edge_type = edge.type
+                        fallback_edge_attrs: Dict = {}
+                        if hasattr(edge, 'attrs'):
+                            for attr_name in edge.attrs:
+                                try:
+                                    fallback_edge_attrs[attr_name] = {
+                                        'value': str(
+                                            edge.attrs[attr_name].value),
+                                        'type': type(
+                                            edge.attrs[attr_name].value
+                                        ).__name__,
+                                    }
+                                except (AttributeError, KeyError, TypeError):
+                                    fallback_edge_attrs[attr_name] = {
+                                        'error': 'Could not access'
+                                    }
+                        edges.append({
+                            'to': str(destination_id),
+                            'from': str(origin_id),
+                            'type': str(edge_type),
+                            'attributes': fallback_edge_attrs,
+                        })
+                except (AttributeError, RuntimeError):
+                    edges = [{'error': f'Could not access edges: {e}'}]
+            else:
+                edges = [{'error': f'Could not access edges: {e}'}]
+
+    # Additionally, use DSRGraph to get incoming edges to this node
+    if dsr_graph is not None:
+        try:
+            # Get edges that point to this node (incoming edges)
+            incoming_edges = dsr_graph.get_edges_to_id(node.id)
+            for edge in incoming_edges:
+                # Check if this edge is already in our list to avoid duplicates
+                edge_exists = any(
+                    e.get('from') == str(edge.origin) and
+                    e.get('to') == str(edge.destination) and
+                    e.get('type') == str(edge.type)
+                    for e in edges if 'error' not in e
+                )
+
+                if not edge_exists:
+                    origin_id = edge.origin
+                    destination_id = edge.destination
+                    edge_type = edge.type
+                    incoming_edge_attrs: Dict = {}
+                    if hasattr(edge, 'attrs'):
+                        for attr_name in edge.attrs:
+                            try:
+                                incoming_edge_attrs[attr_name] = {
+                                    'value': str(edge.attrs[attr_name].value),
+                                    'type': type(
+                                        edge.attrs[attr_name].value).__name__,
+                                }
+                            except (AttributeError, KeyError, TypeError):
+                                incoming_edge_attrs[attr_name] = {
+                                    'error': 'Could not access'
+                                }
+                    edges.append({
+                        'to': str(destination_id),
+                        'from': str(origin_id),
+                        'type': str(edge_type),
+                        'attributes': incoming_edge_attrs,
+                    })
+        except (AttributeError, RuntimeError):
+            # If we couldn't get incoming edges, that's not necessarily
+            # an error since we might have gotten the outgoing ones
+            # successfully
+            pass
+
     return edges
 
 
