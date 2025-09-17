@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.grupo-avispa/dsr_mcp_server",
+  "description": "An MCP server that provides tools for interacting with Deep State Representation (DSR) graphs.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/grupo-avispa/dsr_mcp_server",
+    "source": "github"
+  },
+  "website_url": "https://grupo-avispa.github.io/dsr_mcp_server/",
+  "version": "1.0.1"
+}
