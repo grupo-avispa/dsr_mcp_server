@@ -1,6 +1,6 @@
 # DSR MCP Server
 
-A Model Context Protocol (MCP) server that provides tools for interacting with Deep Scene Representation (DSR) graphs. This server enables AI assistants to query, manipulate, and analyze DSR graph structures through standardized MCP tools.
+A Model Context Protocol (MCP) server that provides tools for interacting with Deep State Representation (DSR) graphs. This server enables AI assistants to query, manipulate, and analyze DSR graph structures through standardized MCP tools.
 
 ## Overview
 
