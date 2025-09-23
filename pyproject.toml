@@ -3,7 +3,7 @@ name = "dsr_mcp_server"
 authors = [
     { name = "Alberto Tudela", email = "ajtudela@gmail.com" },
 ]
-version = "0.1.0"
+version = "1.0.0"
 description = "MCP server that provides tools for interacting with Deep State Representation (DSR) graphs"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -15,3 +15,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/grupo-avispa/dsr_mcp_server"
+
+[project.scripts]
+dsr_mcp_server = "dsr_mcp_server.__main__:main"
+
+[tool.uv]
+package = true

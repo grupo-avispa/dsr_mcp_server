@@ -37,16 +37,47 @@ An MCP (Model Context Protocol) server that provides a comprehensive set of tool
 - **[Cortex](https://github.com/grupo-avispa/cortex)**: DSR library for graph operations
 - **Python**: 3.12+ required
 
-### Install as local package
+### Install with uv (recommended)
+
+Clone the repository and install with uv:
+
+```bash
+git clone https://github.com/grupo-avispa/dsr_mcp_server.git
+cd dsr_mcp_server
+uv sync
+```
+
+Or install directly from the repository:
+
+```bash
+uv add git+https://github.com/grupo-avispa/dsr_mcp_server.git
+```
+
+### Install with pip
 
 Install the package in mode:
 
 ```bash
+git clone https://github.com/grupo-avispa/dsr_mcp_server.git
+cd dsr_mcp_server
 python3 -m pip install .
 ```
 
+Or install directly from the repository:
+
+```bash
+python3 -m pip install git+https://github.com/grupo-avispa/dsr_mcp_server.git
+```
+
 ## Usage
-Run the server directly:
+
+### Running with uv
+
+```bash
+uv run dsr_mcp_server
+```
+
+### Running with pip installation
 
 ```bash
 python3 -m dsr_mcp_server
@@ -56,13 +87,59 @@ The server will start and attempt to initialize the DSR connection automatically
 
 ### Configuration example for Claude Desktop/Cursor/VSCode
 
+#### Using uv (recommended)
+
 Add this configuration to your application's settings (mcp.json):
 
 ```json
 {
   "dsr mcp server": {
-    "type": "http",
-    "url": "http://localhost:3000/mcp"
+    "type": "stdio",
+    "command": "uv",
+    "args": [
+      "run",
+      "--directory",
+      "/path/to/dsr_mcp_server",
+      "dsr_mcp_server"
+    ],
+    "env": {
+      "DSR_AGENT_ID": "42",
+      "DSR_NAME": "your_dsr_graph_name"
+    }
+  }
+}
+```
+
+#### Using pip installation
+
+```json
+{
+  "dsr mcp server": {
+    "type": "stdio",
+    "command": "python3",
+    "args": [
+      "-m",
+      "dsr_mcp_server"
+    ],
+    "env": {
+      "DSR_AGENT_ID": "42", 
+      "DSR_NAME": "your_dsr_graph_name"
+    }
+  }
+}
+```
+
+#### HTTP Server Mode
+
+For HTTP transport integration:
+
+```json
+{
+  "servers": {
+    "dsr_mcp_server": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
+    }
   }
 }
 ```
