@@ -1,4 +1,5 @@
 # DSR MCP Server
+![License](https://img.shields.io/github/license/grupo-avispa/dsr_mcp_server)
 
 An MCP (Model Context Protocol) server that provides a comprehensive set of tools to query, manipulate, and analyze Deep State Representation (DSR) graphs. This server enables AI assistants to interact with robot perception and scene understanding data through standardized MCP tools with real-time graph operations and intelligent node relationship management.
 
