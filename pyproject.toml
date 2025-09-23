@@ -1,7 +1,7 @@
 [project]
 name = "dsr_mcp_server"
 authors = [
-    { name = "Alberto Tudeola", email = "ajtudela@gmail.com" },
+    { name = "Alberto Tudela", email = "ajtudela@gmail.com" },
 ]
 version = "0.1.0"
 description = "MCP server that provides tools for interacting with Deep State Representation (DSR) graphs"
