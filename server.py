@@ -854,6 +854,52 @@ async def delete_edge(origin_id: str, destination_id: str, edge_type: str,
         return _create_error_response(error_msg, {'edge': None})
 
 
+@mcp.tool(
+    name='save_graph',
+    description='Save the current state of the DSR graph to a JSON file.',
+    tags={'dsr', 'graph', 'save', 'json'}
+)
+async def save_graph(ctx: Context) -> dict:
+    """
+    Save the current state of the DSR graph to a JSON file.
+
+    The output file path will be obtained through user elicitation.
+
+    Returns:
+        dict: Dictionary with the result of the save operation or an
+        error message.
+    """
+    # Request file path from the user
+    result = await ctx.elicit(
+        message='Please provide the file path to save the DSR graph:',
+        response_type=str
+    )
+
+    if result.action != 'accept':
+        error_msg = 'File path not provided or operation cancelled.'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'file_path': None})
+
+    file_path = result.data
+
+    if dsr_graph is None:
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'file_path': file_path})
+
+    try:
+        dsr_graph.write_to_json_file(file_path, skip_atts=[])
+        await ctx.info(f'DSR graph saved successfully to {file_path}')
+        return _create_success_response(
+            'DSR graph saved successfully',
+            {'file_path': file_path}
+        )
+    except (AttributeError, RuntimeError, ValueError) as e:
+        error_msg = f'Error saving DSR graph to JSON: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'file_path': file_path})
+
+
 def main() -> None:
     """
     Run the MCP server.
