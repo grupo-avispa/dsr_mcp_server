@@ -68,12 +68,12 @@ Add this configuration to your application's settings (mcp.json):
 
 ## Technical Notes
 
-• Connection to DSR is performed with automatic initialization and connection monitoring.
-• Node attributes are filtered to exclude internal rendering properties (color, depth, height, level, etc.) for cleaner output.
-• Edge relationships support various types including spatial (near), ownership (has), identity (is), and association (is_with) semantics.
-• Graph operations maintain consistency through the DSR library's built-in validation mechanisms.
-• All tools return standardized JSON responses with success/error status and detailed information.
-• Interactive file selection for graph export operations through MCP elicit mechanism.
+* Connection to DSR is performed with automatic initialization and connection monitoring.
+* Node attributes are filtered to exclude internal rendering properties (color, depth, height, level, etc.) for cleaner output.
+* Edge relationships support various types including spatial (near), ownership (has), identity (is), and association (is_with) semantics.
+* Graph operations maintain consistency through the DSR library's built-in validation mechanisms.
+* All tools return standardized JSON responses with success/error status and detailed information.
+* Interactive file selection for graph export operations through MCP elicit mechanism.
 
 ## Contributing
 
