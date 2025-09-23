@@ -185,11 +185,7 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
     if hasattr(node, 'edges'):
         try:
             # Access the edges map directly
-            node_edges_map = node.edges
-            for edge in node_edges_map.values():
-                origin_id = edge.origin
-                destination_id = edge.destination
-                edge_type = edge.type
+            for edge in node.edges.values():
                 edge_attrs: Dict = {}
                 if hasattr(edge, 'attrs'):
                     for attr_name in edge.attrs:
@@ -204,20 +200,16 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
                                 'error': 'Could not access'
                             }
                 edges.append({
-                    'to': str(destination_id),
-                    'from': str(origin_id),
-                    'type': str(edge_type),
+                    'origin': str(edge.origin),
+                    'destination': str(edge.destination),
+                    'type': str(edge.type),
                     'attributes': edge_attrs,
                 })
         except (AttributeError, RuntimeError) as e:
             # Fallback: try using get_edges method if available
             if hasattr(node, 'get_edges'):
                 try:
-                    node_edges = node.get_edges()
-                    for edge in node_edges:
-                        origin_id = edge.origin
-                        destination_id = edge.destination
-                        edge_type = edge.type
+                    for edge in node.get_edges():
                         fallback_edge_attrs: Dict = {}
                         if hasattr(edge, 'attrs'):
                             for attr_name in edge.attrs:
@@ -234,9 +226,9 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
                                         'error': 'Could not access'
                                     }
                         edges.append({
-                            'to': str(destination_id),
-                            'from': str(origin_id),
-                            'type': str(edge_type),
+                            'origin': str(edge.origin),
+                            'destination': str(edge.destination),
+                            'type': str(edge.type),
                             'attributes': fallback_edge_attrs,
                         })
                 except (AttributeError, RuntimeError):
@@ -259,9 +251,6 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
                 )
 
                 if not edge_exists:
-                    origin_id = edge.origin
-                    destination_id = edge.destination
-                    edge_type = edge.type
                     incoming_edge_attrs: Dict = {}
                     if hasattr(edge, 'attrs'):
                         for attr_name in edge.attrs:
@@ -276,9 +265,9 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
                                     'error': 'Could not access'
                                 }
                     edges.append({
-                        'to': str(destination_id),
-                        'from': str(origin_id),
-                        'type': str(edge_type),
+                        'origin': str(edge.origin),
+                        'destination': str(edge.destination),
+                        'type': str(edge.type),
                         'attributes': incoming_edge_attrs,
                     })
         except (AttributeError, RuntimeError):
@@ -402,7 +391,7 @@ async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
 
     Returns:
         dict: Standardized response containing a list of nodes of the
-            specified type y su información básica, o un mensaje de error.
+            specified type and their basic information, or an error message.
     """
     await ctx.info(f'Retrieving nodes of type: {node_type}')
 
@@ -515,8 +504,8 @@ async def get_all_edges(ctx: Context) -> dict:
         for node in dsr_graph.get_nodes():
             for destination_id, edge_type in dsr_graph.get_edges(node.id):
                 edges_data.append({
-                    'origin': node.id,
-                    'destination': destination_id,
+                    'origin': str(node.id),
+                    'destination': str(destination_id),
                     'type': edge_type
                 })
 
@@ -566,9 +555,9 @@ async def insert_node(name: str, node_type: str, ctx: Context) -> dict:
         return _create_success_response(
             'Node inserted successfully',
             {
-                'node_id': str(node_id),
-                'node_name': name,
-                'node_type': node_type
+                'id': str(node_id),
+                'name': name,
+                'type': node_type
             }
         )
     except (AttributeError, RuntimeError, ValueError) as e:
@@ -613,9 +602,9 @@ async def insert_edge(origin_id: str, destination_id: str, edge_type: str,
             return _create_success_response(
                 'Edge inserted successfully',
                 {
-                    'origin_id': origin_id,
-                    'destination_id': destination_id,
-                    'edge_type': edge_type
+                    'origin': str(edge.origin),
+                    'destination': str(edge.destination),
+                    'type': edge.type
                 }
             )
         else:
@@ -681,8 +670,8 @@ async def insert_edge_attribute(origin_id: str, destination_id: str,
             return _create_success_response(
                 'Edge attribute inserted successfully',
                 {
-                    'origin_id': origin_id,
-                    'destination_id': destination_id,
+                    'origin': str(origin_id),
+                    'destination': str(destination_id),
                     'attribute_name': attribute_name,
                     'attribute_value': str(converted_value),
                     'attribute_type': attribute_type
@@ -756,7 +745,7 @@ async def update_node(node_id: str, attribute_name: str,
             return _create_success_response(
                 'Node updated successfully',
                 {
-                    'node_id': node_id,
+                    'id': str(node_id),
                     'attribute_name': attribute_name,
                     'attribute_value': str(converted_value),
                     'attribute_type': attribute_type
@@ -850,9 +839,9 @@ async def delete_edge(origin_id: str, destination_id: str, edge_type: str,
             return _create_success_response(
                 'Edge deleted successfully',
                 {
-                    'origin_id': origin_id,
-                    'destination_id': destination_id,
-                    'edge_type': edge_type
+                    'origin': str(origin_id),
+                    'destination': str(destination_id),
+                    'type': edge_type
                 }
             )
         else:
@@ -881,7 +870,6 @@ def main() -> None:
         logger.warning('Could not initialize DSR on startup')
 
     mcp.run(transport='http', host='127.0.0.1', port=3000)
-    # mcp.run()
 
 
 if __name__ == '__main__':
