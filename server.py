@@ -283,7 +283,7 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
     enabled=False,
     name='initialize_dsr_connection',
     description='Initialize or reinitialize the DSR connection',
-    tags={'dsr', 'initialization', 'connection', 'setup'}
+    tags={'dsr', 'graph', 'initialization', 'connection', 'setup'}
 )
 async def initialize_dsr_connection(ctx: Context) -> dict:
     """Initialize or reinitialize the DSR connection."""
@@ -303,7 +303,7 @@ async def initialize_dsr_connection(ctx: Context) -> dict:
 @mcp.tool(
     name='check_dsr_connection',
     description='Check DSR connection and return status information',
-    tags={'dsr', 'connection', 'health', 'status', 'configuration'}
+    tags={'dsr', 'graph', 'connection', 'health', 'status', 'configuration'}
 )
 async def check_dsr(ctx: Context) -> str:
     """Check DSR connection and return status information."""
@@ -328,7 +328,7 @@ async def check_dsr(ctx: Context) -> str:
 @mcp.tool(
     name='get_all_nodes',
     description='Retrieve all nodes from the DSR graph',
-    tags={'dsr', 'nodes', 'graph', 'query'}
+    tags={'dsr', 'graph', 'nodes', 'query'}
 )
 async def get_all_nodes(ctx: Context) -> dict:
     """
@@ -378,7 +378,7 @@ async def get_all_nodes(ctx: Context) -> dict:
         (then call get_node_details per node).
         Combine with get_node_details to inspect edges
         (has, is, is_with) for presence / proximity reasoning.""",
-    tags={'dsr', 'nodes', 'filter', 'type'}
+    tags={'dsr', 'graph', 'nodes', 'filter', 'type'}
 )
 async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
     """
@@ -432,7 +432,7 @@ async def get_nodes_by_type(node_type: str, ctx: Context) -> dict:
     name='get_node_details',
     description='Get detailed information about a specific DSR node '
                 'including attributes and edges',
-    tags={'dsr', 'node', 'details', 'attributes', 'edges'}
+    tags={'dsr', 'graph', 'node', 'details', 'attributes', 'edges'}
 )
 async def get_node_details(node_identifier: str, ctx: Context) -> dict:
     """
@@ -527,7 +527,7 @@ async def get_all_edges(ctx: Context) -> dict:
 @mcp.tool(
     name='insert_node',
     description='Insert a new node into the DSR graph.',
-    tags={'dsr', 'node', 'insert', 'graph'}
+    tags={'dsr', 'graph', 'node', 'insert'}
 )
 async def insert_node(name: str, node_type: str, ctx: Context) -> dict:
     """
@@ -569,7 +569,7 @@ async def insert_node(name: str, node_type: str, ctx: Context) -> dict:
 @mcp.tool(
     name='insert_edge',
     description='Insert a new edge between two nodes in the DSR graph',
-    tags={'dsr', 'edge', 'insert', 'graph'}
+    tags={'dsr', 'graph', 'edge', 'insert'}
 )
 async def insert_edge(origin_id: str, destination_id: str, edge_type: str,
                       ctx: Context) -> dict:
@@ -621,7 +621,7 @@ async def insert_edge(origin_id: str, destination_id: str, edge_type: str,
 @mcp.tool(
     name='insert_edge_attribute',
     description='Insert or update an attribute for an edge in the DSR graph',
-    tags={'dsr', 'edge', 'attribute', 'insert', 'graph'}
+    tags={'dsr', 'graph', 'edge', 'attribute', 'insert'}
 )
 async def insert_edge_attribute(origin_id: str, destination_id: str,
                                 attribute_name: str, attribute_value: str,
@@ -690,7 +690,7 @@ async def insert_edge_attribute(origin_id: str, destination_id: str,
 @mcp.tool(
     name='update_node',
     description='Update a node with new attributes in the DSR graph',
-    tags={'dsr', 'node', 'update', 'graph'}
+    tags={'dsr', 'graph', 'node', 'update'}
 )
 async def update_node(node_id: str, attribute_name: str,
                       attribute_value: str, ctx: Context,
@@ -764,7 +764,7 @@ async def update_node(node_id: str, attribute_name: str,
 @mcp.tool(
     name='delete_node',
     description='Delete a node from the DSR graph',
-    tags={'dsr', 'node', 'delete', 'graph'}
+    tags={'dsr', 'graph', 'node', 'delete'}
 )
 async def delete_node(node_id: str, ctx: Context) -> dict:
     """
@@ -805,7 +805,7 @@ async def delete_node(node_id: str, ctx: Context) -> dict:
 @mcp.tool(
     name='delete_edge',
     description='Delete an edge from the DSR graph',
-    tags={'dsr', 'edge', 'delete', 'graph'}
+    tags={'dsr', 'graph', 'edge', 'delete'}
 )
 async def delete_edge(origin_id: str, destination_id: str, edge_type: str,
                       ctx: Context) -> dict:
