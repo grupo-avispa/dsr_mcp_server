@@ -1,158 +1,88 @@
 # DSR MCP Server
 
-A Model Context Protocol (MCP) server that provides tools for interacting with Deep State Representation (DSR) graphs. This server enables AI assistants to query, manipulate, and analyze DSR graph structures through standardized MCP tools.
+An MCP (Model Context Protocol) server that provides a comprehensive set of tools to query, manipulate, and analyze Deep State Representation (DSR) graphs. This server enables AI assistants to interact with robot perception and scene understanding data through standardized MCP tools with real-time graph operations and intelligent node relationship management.
 
-## Overview
+### Tools
 
-The DSR MCP Server wraps DSR functionality using FastMCP, providing a standardized interface for AI systems to interact with robot perception and scene understanding data. It exposes various tools for node management, graph traversal, and edge manipulation within DSR graphs.
+| Tool Name                 | Description                                                                   | Parameters                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **check_dsr_connection**  | Check DSR connection and return status information                            | —                                                                                                                        |
+| **get_all_nodes**         | Retrieve all nodes from the DSR graph                                         | —                                                                                                                        |
+| **get_nodes_by_type**     | Filter nodes by their type (e.g., robot, person, room)                        | `node_type: str`                                                                                                         |
+| **get_node_details**      | Get detailed information about a specific node including attributes and edges | `node_identifier: str`                                                                                                   |
+| **get_all_edges**         | Retrieve all edges from the DSR graph                                         | —                                                                                                                        |
+| **insert_node**           | Insert a new node into the DSR graph                                          | `name: str`, `node_type: str`                                                                                            |
+| **insert_edge**           | Insert a new edge between two nodes in the DSR graph                          | `origin_id: str`, `destination_id: str`, `edge_type: str`                                                                |
+| **insert_edge_attribute** | Insert or update an attribute for an edge in the DSR graph                    | `origin_id: str`, `destination_id: str`, `attribute_name: str`, `attribute_value: str`, `attribute_type: str = 'string'` |
+| **update_node**           | Update a node with new attributes in the DSR graph                            | `node_id: str`, `attribute_name: str`, `attribute_value: str`, `attribute_type: str = 'string'`                          |
+| **delete_node**           | Delete a node from the DSR graph                                              | `node_id: str`                                                                                                           |
+| **delete_edge**           | Delete an edge from the DSR graph                                             | `origin_id: str`, `destination_id: str`, `edge_type: str`                                                                |
+| **save_graph**            | Save the current state of the DSR graph to a JSON file                        | Interactive file path selection                                                                                          |
 
-## Features
+## Environment Variables
 
-- **Connection Management**: Initialize and monitor DSR connections
-- **Node Operations**: Retrieve, filter, and analyze DSR nodes
-- **Graph Traversal**: Navigate through node relationships and edges
-- **Type-based Filtering**: Find nodes by specific types (robot, person, room, etc.)
-- **Edge Management**: Create, query, and delete relationships between nodes
-- **Attribute Access**: Read and analyze node attributes and properties
+| Variable       | Default    | Description                                |
+| -------------- | ---------- | ------------------------------------------ |
+| `DSR_AGENT_ID` | 42         | Unique agent identifier for DSR connection |
+| `DSR_NAME`     | mcp_server | Target DSR graph name to connect to        |
+| `SERVER_HOST`  | 127.0.0.1  | Server host address                        |
+| `SERVER_PORT`  | 3000       | Server port number                         |
 
 ## Installation
 
-1. Clone the repository:
+### Dependencies
+
+- **[fastmcp](https://github.com/jlowin/fastmcp)**: MCP server framework (>= 2.2.7)
+- **[Cortex](https://github.com/grupo-avispa/cortex)**: DSR library for graph operations
+- **Python**: 3.12+ required
+
+### Install as local package
+
+Install the package in mode:
+
 ```bash
-git clone https://github.com/grupo-avispa/dsr_mcp_server.git
-cd dsr_mcp_server
+python3 -m pip install .
 ```
-
-2. Install dependencies:
-```bash
-pip3 install -r requirements.txt
-```
-
-3. Ensure you have the DSR library (`pydsr`) installed and properly configured in your environment.
-
-## Configuration
-
-The server uses the following default configuration:
-
-- **Agent ID**: 42 (unique among agents)
-- **DSR Name**: 'mcp_server' (target DSR graph name)
-- **Server Host**: 127.0.0.1
-- **Server Port**: 3000
-- **Transport**: HTTP
-
-You can modify these values in the `server.py` file if needed.
 
 ## Usage
-
-### Starting the Server
-
 Run the server directly:
 
 ```bash
-python3 server.py
+python3 -m dsr_mcp_server
 ```
 
-The server will start on `http://localhost:3000/mcp` and attempt to initialize the DSR connection automatically.
+The server will start and attempt to initialize the DSR connection automatically using the configured parameters.
 
-### MCP Client Configuration
+### Configuration example for Claude Desktop/Cursor/VSCode
 
-Add the server to your MCP client configuration (`mcp.json`):
+Add this configuration to your application's settings (mcp.json):
 
 ```json
 {
-    "servers": {
-        "dsr_mcp_server": {
-            "type": "http",
-            "url": "http://localhost:3000/mcp"
-        }
-    }
+  "dsr mcp server": {
+    "type": "http",
+    "url": "http://localhost:3000/mcp"
+  }
 }
 ```
 
-## Available Tools
+## Technical Notes
 
-### Connection Management
+• Connection to DSR is performed with automatic initialization and connection monitoring.
+• Node attributes are filtered to exclude internal rendering properties (color, depth, height, level, etc.) for cleaner output.
+• Edge relationships support various types including spatial (near), ownership (has), identity (is), and association (is_with) semantics.
+• Graph operations maintain consistency through the DSR library's built-in validation mechanisms.
+• All tools return standardized JSON responses with success/error status and detailed information.
+• Interactive file selection for graph export operations through MCP elicit mechanism.
 
-- **`initialize_dsr_connection`**: Initialize or reinitialize the DSR connection
-- **`check_dsr_connection`**: Check DSR connection status and return diagnostic information
-
-### Node Operations
-
-- **`get_all_nodes`**: Retrieve all nodes from the DSR graph with basic information
-- **`get_nodes_by_type`**: Filter nodes by their type (e.g., robot, person, room)
-- **`get_node_details`**: Get comprehensive information about a specific node including attributes and edges
-
-### Graph Analysis
-
-- **`get_node_edges`**: Retrieve all edges connected to a specific node
-- **`get_edge_details`**: Get detailed information about a specific edge between two nodes
-
-### Edge Management
-
-- **`create_edge`**: Create new relationships between nodes
-- **`delete_edge`**: Remove existing edges from the graph
-
-## Example Interactions
-
-### Check Connection Status
-```python
-# Through MCP client
-result = await client.call_tool("check_dsr_connection")
-print(result)  # Shows connection status, agent ID, and root node information
-```
-
-### Find All Robots
-```python
-# Get all robot nodes
-robots = await client.call_tool("get_nodes_by_type", {"node_type": "robot"})
-```
-
-### Analyze Node Relationships
-```python
-# Get detailed information about a specific node
-node_details = await client.call_tool("get_node_details", {"node_identifier": "123"})
-```
-
-## API Response Format
-
-All tools return standardized responses with the following structure:
-
-### Success Response
-```json
-{
-    "success": true,
-    "message": "Operation completed successfully",
-    "data": {
-        // Additional response data
-    }
-}
-```
-
-### Error Response
-```json
-{
-    "success": false,
-    "error": "Error description",
-    "details": {
-        // Additional error details
-    }
-}
-```
-
-## Dependencies
-
-- **[fastmcp](https://github.com/jlowin/fastmcp)**: MCP server framework (>= 2.2.7)
-- **[Cortex](https://github.com/grupo-avispa/cortex)**: DSR library
-- **Python**: 3.7+ required
-
-### Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
+3. Make your changes following the coding conventions
 4. Add tests if applicable
 5. Submit a pull request
 
 ## Support
 
-For issues, questions, or contributions, please refer to the project's issue tracker or contact the development team.
+For issues, questions, or contributions, please refer to the [project's issue tracker](https://github.com/grupo-avispa/dsr_mcp_server/issues) or contact the development team.
