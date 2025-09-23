@@ -291,6 +291,7 @@ def _get_node_edges(node: Node) -> List[Dict[str, Any]]:
 
 
 @mcp.tool(
+    enabled=False,
     name='initialize_dsr_connection',
     description='Initialize or reinitialize the DSR connection',
     tags={'dsr', 'initialization', 'connection', 'setup'}
@@ -355,9 +356,8 @@ async def get_all_nodes(ctx: Context) -> dict:
         return _create_error_response(error_msg, {'nodes': []})
 
     try:
-        nodes = dsr_graph.get_nodes()
         nodes_data = []
-        for node in nodes:
+        for node in dsr_graph.get_nodes():
             nodes_data.append({
                 'id': str(node.id),
                 'name': node.name,
@@ -492,6 +492,50 @@ async def get_node_details(node_identifier: str, ctx: Context) -> dict:
 
 
 @mcp.tool(
+    name='get_all_edges',
+    description='Retrieve all edges from the DSR graph',
+    tags={'dsr', 'graph', 'edges', 'query'}
+)
+async def get_all_edges(ctx: Context) -> dict:
+    """
+    Retrieve all edges from the DSR graph.
+
+    Returns:
+        dict: Dictionary containing a list of edges and their basic info.
+    """
+    await ctx.info('Retrieving all edges from DSR graph...')
+
+    if dsr_graph is None:
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'edges': []})
+
+    try:
+        edges_data = []
+        for node in dsr_graph.get_nodes():
+            for destination_id, edge_type in dsr_graph.get_edges(node.id):
+                edges_data.append({
+                    'origin': node.id,
+                    'destination': destination_id,
+                    'type': edge_type
+                })
+
+        await ctx.info(f'Retrieved {len(edges_data)} edges successfully')
+        return _create_success_response(
+            f'Retrieved {len(edges_data)} edges',
+            {
+                'edges': edges_data,
+                'count': len(edges_data),
+                'dsr_name': DSR_NAME
+            }
+        )
+    except (AttributeError, RuntimeError, TypeError) as e:
+        error_msg = f'Error retrieving edges: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'edges': []})
+
+
+@mcp.tool(
     name='insert_node',
     description='Insert a new node into the DSR graph.',
     tags={'dsr', 'node', 'insert', 'graph'}
@@ -586,6 +630,75 @@ async def insert_edge(origin_id: str, destination_id: str, edge_type: str,
 
 
 @mcp.tool(
+    name='insert_edge_attribute',
+    description='Insert or update an attribute for an edge in the DSR graph',
+    tags={'dsr', 'edge', 'attribute', 'insert', 'graph'}
+)
+async def insert_edge_attribute(origin_id: str, destination_id: str,
+                                attribute_name: str, attribute_value: str,
+                                ctx: Context,
+                                attribute_type: str = 'string') -> dict:
+    """
+    Insert or update an attribute for an edge in the DSR graph.
+
+    Args:
+        origin_id (str): ID of the origin node.
+        destination_id (str): ID of the destination node.
+        attribute_name (str): Name of the attribute to insert/update.
+        attribute_value (str): Value of the attribute.
+        attribute_type (str): Type of the attribute (string, int, float, bool).
+
+    Returns:
+        dict: Dictionary with the result of the insertion or error message.
+    """
+    await ctx.info(
+        f'Inserting edge attribute {attribute_name} for edge '
+        f'{origin_id} -> {destination_id}'
+    )
+
+    if dsr_graph is None:
+        error_msg = 'DSR not initialized'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'nodes': []})
+
+    try:
+        # Convert attribute value to the appropriate type
+        converted_value: Any = attribute_value
+        if attribute_type == 'int':
+            converted_value = int(attribute_value)
+        elif attribute_type == 'float':
+            converted_value = float(attribute_value)
+        elif attribute_type == 'bool':
+            converted_value = attribute_value.lower() in (
+                'true', '1', 'yes', 'on')
+
+        success = dsr_graph.insert_edge_attribute(
+            int(origin_id), int(destination_id),
+            attribute_name, converted_value)
+
+        if success:
+            await ctx.info('Edge attribute inserted successfully')
+            return _create_success_response(
+                'Edge attribute inserted successfully',
+                {
+                    'origin_id': origin_id,
+                    'destination_id': destination_id,
+                    'attribute_name': attribute_name,
+                    'attribute_value': str(converted_value),
+                    'attribute_type': attribute_type
+                }
+            )
+        else:
+            error_msg = 'Failed to insert edge attribute'
+            await ctx.error(error_msg)
+            return _create_error_response(error_msg, {'attribute': None})
+    except (AttributeError, RuntimeError, ValueError) as e:
+        error_msg = f'Error inserting edge attribute: {str(e)}'
+        await ctx.error(error_msg)
+        return _create_error_response(error_msg, {'attribute': None})
+
+
+@mcp.tool(
     name='update_node',
     description='Update a node with new attributes in the DSR graph',
     tags={'dsr', 'node', 'update', 'graph'}
@@ -657,75 +770,6 @@ async def update_node(node_id: str, attribute_name: str,
         error_msg = f'Error updating node: {str(e)}'
         await ctx.error(error_msg)
         return _create_error_response(error_msg, {'node': None})
-
-
-@mcp.tool(
-    name='insert_edge_attribute',
-    description='Insert or update an attribute for an edge in the DSR graph',
-    tags={'dsr', 'edge', 'attribute', 'insert', 'graph'}
-)
-async def insert_edge_attribute(origin_id: str, destination_id: str,
-                                attribute_name: str, attribute_value: str,
-                                ctx: Context,
-                                attribute_type: str = 'string') -> dict:
-    """
-    Insert or update an attribute for an edge in the DSR graph.
-
-    Args:
-        origin_id (str): ID of the origin node.
-        destination_id (str): ID of the destination node.
-        attribute_name (str): Name of the attribute to insert/update.
-        attribute_value (str): Value of the attribute.
-        attribute_type (str): Type of the attribute (string, int, float, bool).
-
-    Returns:
-        dict: Dictionary with the result of the insertion or error message.
-    """
-    await ctx.info(
-        f'Inserting edge attribute {attribute_name} for edge '
-        f'{origin_id} -> {destination_id}'
-    )
-
-    if dsr_graph is None:
-        error_msg = 'DSR not initialized'
-        await ctx.error(error_msg)
-        return _create_error_response(error_msg, {'nodes': []})
-
-    try:
-        # Convert attribute value to the appropriate type
-        converted_value: Any = attribute_value
-        if attribute_type == 'int':
-            converted_value = int(attribute_value)
-        elif attribute_type == 'float':
-            converted_value = float(attribute_value)
-        elif attribute_type == 'bool':
-            converted_value = attribute_value.lower() in (
-                'true', '1', 'yes', 'on')
-
-        success = dsr_graph.insert_edge_attribute(
-            int(origin_id), int(destination_id),
-            attribute_name, converted_value)
-
-        if success:
-            await ctx.info('Edge attribute inserted successfully')
-            return _create_success_response(
-                'Edge attribute inserted successfully',
-                {
-                    'origin_id': origin_id,
-                    'destination_id': destination_id,
-                    'attribute_name': attribute_name,
-                    'attribute_value': str(converted_value),
-                    'attribute_type': attribute_type
-                }
-            )
-        else:
-            error_msg = 'Failed to insert edge attribute'
-            await ctx.error(error_msg)
-            return _create_error_response(error_msg, {'attribute': None})
-    except (AttributeError, RuntimeError, ValueError) as e:
-        error_msg = f'Error inserting edge attribute: {str(e)}'
-        await ctx.error(error_msg)
-        return _create_error_response(error_msg, {'attribute': None})
 
 
 @mcp.tool(
