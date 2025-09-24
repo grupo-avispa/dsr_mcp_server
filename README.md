@@ -37,6 +37,14 @@ An MCP (Model Context Protocol) server that provides a comprehensive set of tool
 - **[Cortex](https://github.com/grupo-avispa/cortex)**: DSR library for graph operations
 - **Python**: 3.12+ required
 
+> **Note:** You must build Cortex inside the virtual environment to ensure compatibility.
+```bash
+cd dsr_mcp_server
+source .venv/bin/activate
+cd ${CORTEX_DIR} && make -p build && cd build
+cmake .. && make -j$(nproc) && sudo make install
+```
+
 ### Install with uv (recommended)
 
 Clone the repository and install with uv:
