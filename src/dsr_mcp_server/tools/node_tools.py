@@ -45,7 +45,7 @@ def convert_attribute_value(value: str, attr_type: str) -> Any:
     return value  # Default to string
 
 
-async def get_all_nodes(dsr_client: DSRClient, ctx: Context) -> Dict[str, Any]:
+async def get_all_nodes(dsr_client: DSRClient, ctx: Context) -> str:
     """
     Return all nodes from the DSR graph with their basic information.
 
@@ -87,7 +87,7 @@ async def get_all_nodes(dsr_client: DSRClient, ctx: Context) -> Dict[str, Any]:
 
 async def get_nodes_by_type(
     node_type: str, dsr_client: DSRClient, ctx: Context
-) -> Dict[str, Any]:
+) -> str:
     """
     Retrieve nodes filtered by their type from the DSR graph.
 
@@ -105,24 +105,31 @@ async def get_nodes_by_type(
         nodes = dsr_client.get_nodes_by_type(node_type)
         nodes_data = []
 
-        for node in nodes:
-            nodes_data.append({
-                'id': str(node.id),
-                'name': node.name,
-                'type': node.type
-            })
+        if nodes:
+            for node in nodes:
+                nodes_data.append({
+                    'id': str(node.id),
+                    'name': node.name,
+                    'type': node.type
+                })
 
-        await ctx.info(
-            f'Retrieved {len(nodes_data)} nodes of type {node_type}'
-        )
-        return create_success_response(
-            f'Retrieved {len(nodes_data)} nodes of type {node_type}',
-            {
-                'nodes': nodes_data,
-                'count': len(nodes_data),
-                'type': node_type
-            }
-        )
+            await ctx.info(
+                f'Retrieved {len(nodes_data)} nodes of type {node_type}'
+            )
+            return create_success_response(
+                f'Retrieved {len(nodes_data)} nodes of type {node_type}',
+                {
+                    'nodes': nodes_data,
+                    'count': len(nodes_data),
+                    'type': node_type
+                }
+            )
+        else:
+            await ctx.warning(f'No nodes found of type {node_type}')
+            return create_error_response(
+                f'No nodes found of type {node_type}',
+                {'nodes': []}
+            )
     except RuntimeError as e:
         error_msg = str(e)
         await ctx.error(error_msg)
@@ -131,7 +138,7 @@ async def get_nodes_by_type(
 
 async def get_node_details(
     node_identifier: str, dsr_client: DSRClient, ctx: Context
-) -> Dict[str, Any]:
+) -> str:
     """
     Return detailed information about a specific node by ID.
 
@@ -176,7 +183,7 @@ async def get_node_details(
 
 async def insert_node(
     name: str, node_type: str, dsr_client: DSRClient, ctx: Context
-) -> Dict[str, Any]:
+) -> str:
     """
     Insert a new node into the DSR graph.
 
@@ -211,7 +218,7 @@ async def insert_node(
 async def update_node(
     node_id: str, attribute_name: str, attribute_value: str,
     dsr_client: DSRClient, ctx: Context, attribute_type: str = 'string'
-) -> Dict[str, Any]:
+) -> str:
     """
     Update a node with new attributes in the DSR graph.
 
@@ -259,7 +266,7 @@ async def update_node(
 
 async def delete_node(
     node_id: str, dsr_client: DSRClient, ctx: Context
-) -> Dict[str, Any]:
+) -> str:
     """
     Delete a node from the DSR graph.
 

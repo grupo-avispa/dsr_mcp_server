@@ -210,6 +210,74 @@ async def save_graph_tool(ctx: Context) -> dict:
     return await graph_tools.save_graph(file_path, dsr_client, ctx)
 
 
+# Resources for read-only access to DSR graph data
+@mcp.resource(
+    uri='dsr://nodes',
+    name='All DSR Nodes',
+    description='Read-only access to all nodes in the DSR graph with their '
+                'basic information (id, name, type, agent_id)',
+    mime_type='application/json',
+    tags={'dsr', 'graph', 'nodes', 'query'},
+    annotations={
+        'readOnlyHint': True,
+        'idempotentHint': True
+    }
+)
+async def nodes_resource(ctx: Context) -> dict:
+    """Provide read-only access to all nodes in the DSR graph."""
+    return await node_tools.get_all_nodes(dsr_client, ctx)
+
+
+@mcp.resource(
+    uri='dsr://nodes/type/{node_type}',
+    name='DSR Nodes by Type',
+    description='Read-only access to nodes filtered by type with full details '
+                'including attributes and edges (e.g., robot, person, room)',
+    mime_type='application/json',
+    tags={'dsr', 'graph', 'nodes', 'filter', 'type'},
+    annotations={
+        'readOnlyHint': True,
+        'idempotentHint': True
+    }
+)
+async def nodes_by_type_resource(node_type: str, ctx: Context) -> dict:
+    """Provide read-only access to nodes filtered by type with full details."""
+    return await node_tools.get_nodes_by_type(node_type, dsr_client, ctx)
+
+
+@mcp.resource(
+    uri='dsr://nodes/{node_id}',
+    name='DSR Node Details',
+    description='Read-only access to detailed information about a specific '
+                'node including attributes and edges',
+    mime_type='application/json',
+    tags={'dsr', 'graph', 'node', 'details', 'attributes', 'edges'},
+    annotations={
+        'readOnlyHint': True,
+        'idempotentHint': True
+    }
+)
+async def node_details_resource(node_id: str, ctx: Context) -> dict:
+    """Provide read-only access to detailed node information."""
+    return await node_tools.get_node_details(node_id, dsr_client, ctx)
+
+
+@mcp.resource(
+    uri='dsr://edges',
+    name='All DSR Edges',
+    description='Read-only access to all edges in the DSR graph',
+    mime_type='application/json',
+    tags={'dsr', 'graph', 'edges', 'query'},
+    annotations={
+        'readOnlyHint': True,
+        'idempotentHint': True
+    }
+)
+async def edges_resource(ctx: Context) -> dict:
+    """Provide read-only access to all edges in the DSR graph."""
+    return await edge_tools.get_all_edges(dsr_client, ctx)
+
+
 def main() -> None:
     """
     Run the MCP server.

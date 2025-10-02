@@ -20,6 +20,17 @@ An MCP (Model Context Protocol) server that provides a comprehensive set of tool
 | **delete_edge**           | Delete an edge from the DSR graph                                             | `origin_id: str`, `destination_id: str`, `edge_type: str`                                                                |
 | **save_graph**            | Save the current state of the DSR graph to a JSON file                        | Interactive file path selection                                                                                          |
 
+### Resources
+
+Resources provide read-only, efficient access to DSR graph data. They are ideal for querying information without modifying the graph state.
+
+| Resource URI                | Description                                                  | Returns                                                 |
+| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------- |
+| **dsr://nodes**             | All nodes in the DSR graph with basic information            | JSON with nodes array, count, and DSR name              |
+| **dsr://nodes/type/{type}** | Nodes filtered by type with full details (attributes, edges) | JSON with detailed nodes array, count, and type         |
+| **dsr://nodes/{node_id}**   | Detailed information about a specific node                   | JSON with node details, attributes, and connected edges |
+| **dsr://edges**             | All edges in the DSR graph                                   | JSON with edges array, count, and DSR name              |
+
 ## Environment Variables
 
 | Variable       | Default    | Description                                |
@@ -160,6 +171,7 @@ For HTTP transport integration:
 * Graph operations maintain consistency through the DSR library's built-in validation mechanisms.
 * All tools return standardized JSON responses with success/error status and detailed information.
 * Interactive file selection for graph export operations through MCP elicit mechanism.
+* **Resources** provide read-only, idempotent access to DSR graph data with efficient caching and lower overhead compared to tools. Use resources for querying data and tools for modifications.
 
 ## Contributing
 

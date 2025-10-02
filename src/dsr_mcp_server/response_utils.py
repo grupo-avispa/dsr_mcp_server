@@ -16,12 +16,13 @@
 """Response utilities for standardized API responses."""
 
 from typing import Optional, Dict, Any
+import json
 
 
 def create_success_response(
     message: str,
     data: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Create a standardized success response.
 
@@ -38,13 +39,13 @@ def create_success_response(
     }
     if data:
         response.update(data)
-    return response
+    return json.dumps(response, indent=2)
 
 
 def create_error_response(
     error: str,
     details: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Create a standardized error response.
 
@@ -61,4 +62,4 @@ def create_error_response(
     }
     if details:
         response.update(details)
-    return response
+    return json.dumps(response, indent=2)
